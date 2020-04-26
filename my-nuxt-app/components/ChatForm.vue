@@ -1,6 +1,8 @@
 <template>
   <div class="input-container">
-    <textarea v-model="text" v-on:click="openLoginModal" v-on:keydown.enter="addMessage"></textarea>
+    <img v-if="isAuthenticated" :src="user.photoURL" class="avatar" />
+    <textarea v-model="text" v-if="isAuthenticated" v-on:keydown.enter="addMessage"></textarea>
+    <textarea v-model="text" v-else v-on:click="openLoginModal"></textarea>
     <el-dialog title :visible.sync="dialogVisible" width="30%">
       <div class="image-container">
         <img src="~/assets/google_sign_in.png" v-on:click="login" />
@@ -11,6 +13,7 @@
 
 <script>
 import { db, firebase } from "~/plugins/firebase";
+import { mapActions } from "vuex";
 import Vue from "vue";
 import ElementUI from "element-ui";
 import "element-ui/lib/theme-chalk/index.css";
@@ -19,11 +22,20 @@ Vue.use(ElementUI);
 export default {
   data() {
     return {
-      dialogVisible: true,
+      dialogVisible: false,
       text: null
     };
   },
+  computed: {
+    user() {
+      return this.$store.state.user;
+    },
+    isAuthenticated() {
+      return this.$store.getters.isAuthenticated;
+    }
+  },
   methods: {
+    ...mapActions(["setUser"]),
     openLoginModal() {
       this.dialogVisible = true;
     },
@@ -35,7 +47,14 @@ export default {
       db.collection("channels")
         .doc(channelId)
         .collection("messages")
-        .add({ text: this.text, createdAt: new Date().getTime() })
+        .add({
+          text: this.text,
+          createdAt: new Date().getTime(),
+          user: {
+            name: this.user.displayName,
+            thumbnail: this.user.photoURL
+          }
+        })
         .then(() => {
           this.text = null;
         });
@@ -51,6 +70,7 @@ export default {
         .signInWithPopup(provider)
         .then(result => {
           const user = result.user;
+          this.setUser(user);
           this.dialogVisible = false;
         })
         .catch(error => {
@@ -65,6 +85,12 @@ export default {
 .input-container {
   padding: 10px;
   height: 100%;
+  display: flex;
+}
+
+.avatar {
+  height: 100%;
+  width: auto;
 }
 
 textarea {
